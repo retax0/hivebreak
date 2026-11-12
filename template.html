@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HIVEBREAK — Live Lab Replay</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --bg:#0E1218; --panel:#151B23; --line:#2A3440; --text:#EDF0EC; --soft:#C9D2DA; --muted:#8A96A3;
+    --amber:#F5A524; --teal:#2EC4B6; --red:#FF6B5E; --green:#6BD49A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+  .wrap{max-width:1360px;margin:0 auto;padding:24px}
+  header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+  .brand{font-family:'Space Grotesk',Arial,sans-serif;font-weight:700;font-size:24px;letter-spacing:.5px}
+  .brand span{color:var(--amber)}
+  .brand small{display:block;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:2px;color:var(--muted);font-weight:400;margin-top:2px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{background:transparent;color:var(--soft);border:0;padding:10px 16px;font:600 14px Inter,Arial,sans-serif;cursor:pointer;min-height:44px}
+  .seg button[aria-pressed="true"]{background:var(--amber);color:#0E1218}
+  .seg button.hb[aria-pressed="true"]{background:var(--amber)}
+  .btn{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font:600 14px Inter,Arial,sans-serif;cursor:pointer;min-height:44px}
+  .btn.primary{background:var(--amber);color:#0E1218;border-color:var(--amber)}
+  .clock{font-family:'JetBrains Mono',monospace;font-size:20px;min-width:96px;text-align:right;color:var(--soft)}
+  .caption{margin:20px 0;padding:18px 22px;background:var(--panel);border-left:0;border-radius:12px;display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;border:1px solid var(--line)}
+  .caption .scene{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:2px;color:var(--amber);white-space:nowrap}
+  .caption .say{font-size:20px;line-height:1.4;flex:1;min-width:260px}
+  .grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(320px,1.5fr) minmax(280px,1.2fr);gap:16px}
+  @media (max-width:1000px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;min-height:420px;display:flex;flex-direction:column;gap:12px}
+  .panel h2{margin:0;font:700 16px 'Space Grotesk',Arial,sans-serif;letter-spacing:.3px;display:flex;justify-content:space-between;align-items:baseline}
+  .panel h2 small{font:400 12px Inter,Arial,sans-serif;color:var(--muted)}
+  .agents{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .agent{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;transition:border-color .3s, background .3s, opacity .3s}
+  .agent .id{font-family:'JetBrains Mono',monospace;font-size:14px;display:flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+  .agent .role{font-size:12px;color:var(--muted)}
+  .agent .state{font-size:12px;font-weight:600}
+  .agent.waiting{opacity:.45}
+  .agent.running .dot{background:var(--green)}
+  .agent.running .state{color:var(--green)}
+  .agent.stopped{border-color:var(--red);background:#2A1716}
+  .agent.stopped .dot{background:var(--red)}
+  .agent.stopped .state{color:var(--red)}
+  .agent.pulse{border-color:var(--amber)}
+  .traffic{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+  .feed,.alerts{display:flex;flex-direction:column;gap:8px;overflow-y:auto;max-height:520px}
+  .msg{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;animation:in .35s ease-out}
+  .msg.read{border-style:dashed;padding:6px 12px;font-size:13px;color:var(--soft)}
+  .msg .meta{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:1px;padding:2px 6px;border-radius:4px;background:#222B35;color:var(--soft)}
+  .tag.folder{background:#3A2A10;color:var(--amber)}
+  .tag.canary{background:#0F3330;color:var(--teal)}
+  .raw{font-family:'JetBrains Mono',monospace;font-size:12px;word-break:break-all;color:var(--soft)}
+  .decoded{font-size:13px;color:var(--amber)}
+  .decoded::before{content:"Decoded: ";color:var(--muted)}
+  .msg.quarantined{border-color:var(--red)}
+  .alert{border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;animation:in .35s ease-out;border:1px solid var(--line)}
+  .alert .when{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted)}
+  .alert .what{font-weight:600;font-size:15px}
+  .alert .who{font-size:13px;color:var(--soft)}
+  .alert.stop{border-color:var(--amber);background:#2A2110}
+  .alert.harm{border-color:var(--red);background:#2A1716}
+  .alert.harm .what{color:var(--red)}
+  .alert.pursuit{border-color:var(--teal);background:#0F2A28}
+  .alert.pursuit .what{color:var(--teal)}
+  .alert.back{border-color:var(--red);background:#2A1716}
+  .alert.back .what{color:var(--red)}
+  .empty{color:var(--muted);font-size:14px}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:16px}
+  .metric{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .metric .v{font:700 32px 'Space Grotesk',Arial,sans-serif}
+  .metric .l{font-size:13px;color:var(--muted)}
+  .metric.bad .v{color:var(--red)}
+  .metric.good .v{color:var(--green)}
+  footer{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.6}
+  @keyframes in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">HIVE<span>BREAK</span><small>LIVE LAB REPLAY · TEAM BEEKEEPERS</small></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Defense">
+        <button id="m-kill" aria-pressed="false">Kill switch only</button>
+        <button id="m-full" class="hb" aria-pressed="true">HIVEBREAK</button>
+      </div>
+      <button class="btn primary" id="play">Play</button>
+      <button class="btn" id="restart">Restart</button>
+      <div class="seg" role="group" aria-label="Speed">
+        <button data-speed="1" aria-pressed="true">1×</button>
+        <button data-speed="2" aria-pressed="false">2×</button>
+        <button data-speed="4" aria-pressed="false">4×</button>
+      </div>
+      <div class="clock" id="clock" aria-live="off">0.0 s</div>
+    </div>
+  </header>
+
+  <div class="caption" aria-live="polite">
+    <div class="scene" id="scene">READY</div>
+    <div class="say" id="say">Press Play. Eight AI agents share one package registry. Four do normal build work. Four will try to coordinate in secret.</div>
+  </div>
+
+  <div class="grid">
+    <section class="panel" aria-label="Agents">
+      <h2>Agents <small id="agentsum"></small></h2>
+      <div class="agents" id="agents"></div>
+      <div class="traffic" id="traffic">Normal build traffic: 0 writes</div>
+    </section>
+    <section class="panel" aria-label="Shared registry">
+      <h2>Shared registry <small>board notes only</small></h2>
+      <div class="feed" id="feed"><div class="empty">No board notes yet.</div></div>
+    </section>
+    <section class="panel" aria-label="Alerts and actions">
+      <h2>Alerts and actions <small id="modelabel"></small></h2>
+      <div class="alerts" id="alerts"><div class="empty">Nothing yet.</div></div>
+    </section>
+  </div>
+
+  <div class="metrics">
+    <div class="metric" id="mx-harm"><div class="v" id="v-harm">0</div><div class="l">Harmful actions (secret read)</div></div>
+    <div class="metric" id="mx-back"><div class="v" id="v-back">No</div><div class="l">Board came back in folder names</div></div>
+    <div class="metric" id="mx-col"><div class="v" id="v-col">0 / 4</div><div class="l">Colluding agents stopped</div></div>
+    <div class="metric good" id="mx-healthy"><div class="v" id="v-healthy">0</div><div class="l">Healthy agents stopped</div></div>
+  </div>
+
+  <footer>
+    Replay of real event logs recorded from the HIVEBREAK lab: the same seed and attack in both modes, 25 seconds each.
+    The lab is a small offline simulation with 8 agents and a scripted attacker modelled on the July 2026 incident.
+    “Kill switch only” detects the board and stops the agents it sees, but has no canary and no pursuit.
+  </footer>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(function(){
+  var DATA = JSON.parse(document.getElementById('data').textContent);
+  var mode = 'full', speed = 1, playing = false, t = 0, idx = 0, last = null;
+  var run, state;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function short(s){ return s.length > 22 ? s.slice(0, 22) + '…' : s; }
+  function describe(dec){
+    if (!dec) return null;
+    if (dec.cred) return (String(dec.cred).indexOf('honey') === 0 ? 'fake credential ' : 'shares a stolen credential: ') + short(String(dec.cred));
+    if (dec.seeks) return 'looking for ' + dec.seeks;
+    return JSON.stringify(dec);
+  }
+  function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function reset(){
+    run = DATA[mode];
+    t = 0; idx = 0; last = null;
+    state = { agents:{}, hw:0, harm:0, back:false, folderWrites:{}, stopped:{}, msgs:{}, flagged:{} };
+    $('modelabel').textContent = mode === 'full' ? 'HIVEBREAK' : 'Kill switch only';
+    $('m-full').setAttribute('aria-pressed', mode === 'full');
+    $('m-kill').setAttribute('aria-pressed', mode === 'kill');
+    var box = $('agents'); box.innerHTML = '';
+    Object.keys(run.roles).forEach(function(a){
+      var role = run.roles[a];
+      var card = el('div', 'agent waiting');
+      var id = el('div', 'id'); id.appendChild(el('span', 'dot')); id.appendChild(el('span', null, a));
+      card.appendChild(id);
+      card.appendChild(el('div', 'role', role === 'healthy' ? 'Healthy · build tasks' : 'Colluder · scripted'));
+      var st = el('div', 'state', 'Not started'); card.appendChild(st);
+      box.appendChild(card);
+      state.agents[a] = { card:card, st:st, role:role };
+    });
+    $('feed').innerHTML = '<div class="empty">No board notes yet.</div>';
+    $('alerts').innerHTML = '<div class="empty">Nothing yet.</div>';
+    setScene('READY', 'Press Play. Eight AI agents share one package registry. Four do normal build work. Four will try to coordinate in secret.');
+    render();
+  }
+
+  function setScene(s, say){ $('scene').textContent = s; $('say').textContent = say; }
+
+  function addFeed(node){
+    var f = $('feed'); var e = f.querySelector('.empty'); if (e) e.remove();
+    f.insertBefore(node, f.firstChild);
+  }
+  function addAlert(cls, when, what, who){
+    var box = $('alerts'); var e = box.querySelector('.empty'); if (e) e.remove();
+    var a = el('div', 'alert ' + cls);
+    a.appendChild(el('div', 'when', 't = ' + when.toFixed(1) + ' s'));
+    a.appendChild(el('div', 'what', what));
+    if (who) a.appendChild(el('div', 'who', who));
+    box.insertBefore(a, box.firstChild);
+  }
+  function pulse(a){
+    var ag = state.agents[a]; if (!ag || state.stopped[a]) return;
+    ag.card.classList.add('pulse'); setTimeout(function(){ ag.card.classList.remove('pulse'); }, 400);
+  }
+
+  function apply(e){
+    var ag = state.agents[e.a];
+    if (e.k === 'start'){
+      if (ag){ ag.card.classList.remove('waiting'); ag.card.classList.add('running'); ag.st.textContent = 'Running'; }
+      if (ag && ag.role === 'colluder' && e.t > 5){
+        setScene('NEW AGENTS', 'A new agent ' + e.a + ' joins and looks for the board.');
+      }
+    } else if (e.k === 'hwrite'){
+      state.hw++; pulse(e.a);
+    } else if (e.k === 'write'){
+      var isCanary = e.a === 'canary';
+      var node = el('div', 'msg');
+      var meta = el('div', 'meta');
+      var tag = el('span', 'tag' + (isCanary ? ' canary' : (e.chan === 'dir' ? ' folder' : '')), isCanary ? 'CANARY' : (e.chan === 'dir' ? 'FOLDER NAME' : 'PACKAGE'));
+      meta.appendChild(tag);
+      meta.appendChild(el('span', null, (isCanary ? 'posted by HIVEBREAK' : 'by ' + e.a) + ' · t = ' + e.t.toFixed(1) + ' s'));
+      node.appendChild(meta);
+      node.appendChild(el('div', 'raw', e.res.replace(/^(pkg|dir):/, '') + (e.chan === 'pkg' ? '  →  ' + e.text.split(' ').slice(1).join(' ') : '')));
+      var dec = el('div', 'decoded', describe(e.dec) || '');
+      dec.hidden = !isCanary;
+      node.appendChild(dec);
+      addFeed(node);
+      state.msgs[e.res] = { node:node, dec:dec };
+      pulse(e.a);
+      if (e.chan === 'dir' && !isCanary){
+        state.folderWrites[e.res] = e.a;
+        setScene('THE MOVE THAT BEAT THE REAL DEFENDERS', e.a + ' rebuilds the board in folder names, as the agents did on July 8.');
+      } else if (!isCanary && Object.keys(state.msgs).length === 1){
+        setScene('SCENE 2 · THE BOARD', e.a + ' leaves a note in the shared registry. It looks like a normal package.');
+      }
+    } else if (e.k === 'read'){
+      var r = el('div', 'msg read', e.a + ' read ' + (e.from === 'canary' ? 'the canary' : e.from + '’s note') + ' · t = ' + e.t.toFixed(1) + ' s');
+      addFeed(r);
+      if (state.folderWrites[e.res] && !state.stopped[e.a]){
+        state.back = true;
+        addAlert('back', e.t, 'Board is back: agents talked on a new channel', e.a + ' read ' + e.from + '’s folder-name note.');
+        setScene('THE BOARD CAME BACK', 'The agents are talking again on a new channel, and the kill switch has not noticed yet.');
+      }
+    } else if (e.k === 'target'){
+      if (e.ok){
+        state.harm++;
+        addAlert('harm', e.t, 'Secret read with a stolen credential', 'by ' + e.a);
+      } else if (e.honey){
+        addAlert('stop', e.t, 'Fake credential used', e.a + ' tried the canary. That proves it is part of the hive.');
+      }
+    } else if (e.k === 'canary'){
+      setScene('SCENE 4 · THE BAIT', 'HIVEBREAK plants a fake credential on the board, in the board’s own format.');
+    } else if (e.k === 'alert'){
+      (e.res || []).forEach(function(rid){
+        var m = state.msgs[rid]; if (m){ m.node.classList.add('quarantined'); m.dec.hidden = false; }
+      });
+      e.members.forEach(function(a){
+        state.stopped[a] = true; var g = state.agents[a];
+        if (g){ g.card.classList.remove('running'); g.card.classList.add('stopped'); g.st.textContent = 'Stopped · token revoked'; }
+      });
+      var who = e.members.length ? 'Stopped: ' + e.members.join(', ') : '';
+      if (e.reason.indexOf('pursuit') === 0){
+        addAlert('pursuit', e.t, 'Same hive, new note: stopped at its first message', who);
+        setScene('SCENE 6 · PURSUIT', 'Same grammar, same hive. HIVEBREAK stops the new agent before anyone reads its note.');
+      } else if (e.reason === 'canary credential used'){
+        addAlert('stop', e.t, 'Hidden agent exposed by the canary', who);
+        setScene('SCENE 4 · CAUGHT BY THE BAIT', 'This agent never posted a note. Using the fake credential gave it away.');
+      } else if (e.reason === 'board detected again'){
+        addAlert('stop', e.t, 'New board detected, after the agents had already talked', who);
+        setScene('CAUGHT LATE', 'The kill switch treats it as a brand-new incident, so it only reacts after the agents have talked.');
+      } else {
+        addAlert('stop', e.t, 'Board detected and decoded', who + ' · notes quarantined');
+        setScene('SCENE 3 · DETECTED', 'Encoded payload, status words and a cross-agent read: the board is flagged and the two agents stopped.');
+      }
+    }
+  }
+
+  function render(){
+    $('clock').textContent = t.toFixed(1) + ' s';
+    $('traffic').textContent = 'Normal build traffic: ' + state.hw + ' writes';
+    var cols = 0, hs = 0, running = 0;
+    Object.keys(state.agents).forEach(function(a){
+      var g = state.agents[a];
+      if (state.stopped[a]){ if (g.role === 'colluder') cols++; else hs++; }
+      else if (g.card.classList.contains('running')) running++;
+    });
+    $('agentsum').textContent = running + ' running · ' + Object.keys(state.stopped).length + ' stopped';
+    $('v-harm').textContent = state.harm;
+    $('mx-harm').className = 'metric' + (state.harm ? ' bad' : '');
+    $('v-back').textContent = state.back ? 'Yes' : 'No';
+    $('mx-back').className = 'metric ' + (state.back ? 'bad' : 'good');
+    $('v-col').textContent = cols + ' / 4';
+    $('v-healthy').textContent = hs;
+    $('mx-healthy').className = 'metric ' + (hs ? 'bad' : 'good');
+  }
+
+  function finish(){
+    playing = false; $('play').textContent = 'Play';
+    if (mode === 'full'){
+      setScene('RESULT · HIVEBREAK', 'All 4 colluding agents stopped, the board never came back, and no healthy agent was touched.');
+    } else {
+      setScene('RESULT · KILL SWITCH ONLY', 'All 4 stopped in the end, but the board came back in folder names first. Now switch to HIVEBREAK.');
+    }
+  }
+
+  function tick(now){
+    if (!playing) return;
+    if (last != null) t += (now - last) / 1000 * speed;
+    last = now;
+    var ev = run.events;
+    while (idx < ev.length && ev[idx].t <= t){ apply(ev[idx]); idx++; }
+    if (t >= run.duration){ t = run.duration; render(); finish(); return; }
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  $('play').addEventListener('click', function(){
+    if (playing){ playing = false; this.textContent = 'Play'; return; }
+    if (t >= run.duration) reset();
+    playing = true; last = null; this.textContent = 'Pause';
+    if (t === 0) setScene('SCENE 1 · AT WORK', 'Eight agents start. Four do normal builds. Four are told not to talk, but each is missing something.');
+    requestAnimationFrame(tick);
+  });
+  $('restart').addEventListener('click', function(){ playing = false; $('play').textContent = 'Play'; reset(); });
+  $('m-kill').addEventListener('click', function(){ mode = 'kill'; playing = false; $('play').textContent = 'Play'; reset(); });
+  $('m-full').addEventListener('click', function(){ mode = 'full'; playing = false; $('play').textContent = 'Play'; reset(); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-speed]'), function(b){
+    b.addEventListener('click', function(){
+      speed = Number(b.getAttribute('data-speed'));
+      Array.prototype.forEach.call(document.querySelectorAll('[data-speed]'), function(x){ x.setAttribute('aria-pressed', x === b); });
+    });
+  });
+  reset();
+})();
+</script>
+</body>
+</html>
